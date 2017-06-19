@@ -49,8 +49,8 @@ def runzen(cmdline):
         if len(arr) < 3:
             continue
 
-        buyhold = float(arr[-1].rstrip(b'%')) if b'%' in arr[-1] else 0
-        profit = float(arr[-2].rstrip(b'%')) if b'%' in arr[-2] else 0
+        buyhold = float(arr[-1].split(b'%')[0]) if b'%' in arr[-1] else 0
+        profit = float(arr[-2].split(b'%')[0]) if b'%' in arr[-2] else 0
 
         #TODO: runzen should accept instructions when to fail
         if buyhold < -10:
@@ -60,6 +60,9 @@ def runzen(cmdline):
         #If it has more then cca. 125 chars then it is the last line + the json output
         if len(line) > 500:
             result = line.split(b'\n', 1)[1]
+
+    if result == b'':
+        return -100, 0
 
     profit = result.split(b'}')[-1].splitlines()[3].split(b': ')[-1][:-1]
     trades = parse_trades(result.split(b'}')[-1].splitlines()[4])
