@@ -1,5 +1,4 @@
 import datetime
-import os
 import random
 import shlex
 import subprocess
@@ -23,12 +22,48 @@ def pct(x):
 def minutes(x):
     return str(int(x)) + 'm'
 
+def zen_line_iter(inputFile,
+                 inputNewline=b'\x1b[2K\x1b[1G',
+                 outputNewline=b'',
+                 readSize=1280):
+   if outputNewline is None: outputNewline = inputNewline
+   partialLine = b''
+   while True:
+       charsJustRead = inputFile.read(readSize)
+       if not charsJustRead: break
+       partialLine += charsJustRead
+       lines = partialLine.split(inputNewline)
+       partialLine = lines.pop()
+       for line in lines: yield line + outputNewline
+   if partialLine: yield partialLine
 
 def runzen(cmdline):
-    with open(os.devnull, 'w') as devnull:
-        a = subprocess.check_output(shlex.split(cmdline), stderr=devnull)
-    profit = a.split(b'}')[-1].splitlines()[3].split(b': ')[-1][:-1]
-    trades = parse_trades(a.split(b'}')[-1].splitlines()[4])
+    proc = subprocess.Popen(shlex.split(cmdline), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    lines = zen_line_iter(proc.stdout)
+
+    result = b''
+    for line in lines:
+        arr = list(filter(None, line.split(b' ')))
+
+        if len(arr) < 3:
+            continue
+
+        buyhold = float(arr[-1].rstrip(b'%')) if b'%' in arr[-1] else 0
+        profit = float(arr[-2].rstrip(b'%')) if b'%' in arr[-2] else 0
+
+        #TODO: runzen should accept instructions when to fail
+        if buyhold < -10:
+            proc.kill()
+            return -100, 0
+
+        #If it has more then cca. 125 chars then it is the last line + the json output
+        if len(line) > 500:
+            result = line.split(b'\n', 1)[1]
+
+    profit = result.split(b'}')[-1].splitlines()[3].split(b': ')[-1][:-1]
+    trades = parse_trades(result.split(b'}')[-1].splitlines()[4])
+
     return profit, trades
 
 
